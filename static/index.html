@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Helpdesk Assist</title>
+<style>
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    max-width: 900px;
+    margin: 30px auto;
+    padding: 20px;
+    background: #f9fafb;
+    color: #333;
+  }
+  #logo {
+    display: block;
+    margin: 0 auto 20px;
+    height: 90px;
+  }
+  h1 {
+    text-align: center;
+    color: #2c3e50;
+    margin-bottom: 30px;
+    font-weight: 700;
+  }
+  form {
+    background: #ffffff;
+    padding: 25px;
+    border-radius: 8px;
+    box-shadow: 0 7px 15px rgba(0,0,0,0.07);
+    margin-bottom: 40px;
+  }
+  label {
+    font-weight: 600;
+    margin-bottom: 6px;
+    display: inline-block;
+    color: #34495e;
+  }
+  input[type="text"], textarea {
+    width: 100%;
+    padding: 12px 15px;
+    font-size: 16px;
+    border: 1.5px solid #ddd;
+    border-radius: 6px;
+    transition: border-color 0.3s ease;
+    box-sizing: border-box;
+  }
+  input[type="text"]:focus, textarea:focus {
+    border-color: #2980b9;
+    outline: none;
+  }
+  button[type="submit"] {
+    background-color: #2980b9;
+    color: white;
+    border: none;
+    padding: 14px 30px;
+    font-size: 18px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+  button[type="submit"]:hover {
+    background-color: #1c5d8b;
+  }
+  #results {
+    background: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 7px 15px rgba(0,0,0,0.07);
+    padding: 20px;
+  }
+  .ticket {
+    border-bottom: 1px solid #ecf0f1;
+    padding: 15px 0;
+  }
+  .ticket:last-child {
+    border-bottom: none;
+  }
+  .ticket strong {
+    color: #2980b9;
+  }
+  .ticket p {
+    margin-top: 6px;
+    font-size: 15px;
+    line-height: 1.4;
+    color: #555;
+    white-space: pre-wrap;
+  }
+  .no-results {
+    text-align: center;
+    font-style: italic;
+    color: #999;
+  }
+</style>
+</head>
+<body>
+
+<img id="logo" src="/static/logo.png" alt="Helpdesk Logo" />
+
+<h1>Helpdesk Similar Ticket Finder</h1>
+
+<form id="ticket-form" autocomplete="off">
+  <label for="subject">Ticket Subject:</label>
+  <input type="text" id="subject" name="subject" required placeholder="Enter ticket subject" />
+
+  <label for="content" style="margin-top: 20px;">Ticket Content:</label>
+  <textarea id="content" name="content" rows="6" required placeholder="Describe the issue here..."></textarea>
+
+  <div style="text-align:center; margin-top: 30px;">
+    <button type="submit">Find Similar Tickets</button>
+  </div>
+</form>
+
+<h2>Results:</h2>
+<div id="results" aria-live="polite"></div>
+
+<script>
+document.getElementById('ticket-form').addEventListener('submit', function(e) {
+  e.preventDefault();
+
+  const subject = document.getElementById('subject').value.trim();
+  const content = document.getElementById('content').value.trim();
+
+  if (!subject || !content) {
+    alert("Please fill in both subject and content fields.");
+    return;
+  }
+
+  const resultsDiv = document.getElementById('results');
+  resultsDiv.innerHTML = "<p>Searching for similar tickets...</p>";
+
+  fetch('/search_similar', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({subject: subject, content: content})
+  })
+  .then(response => {
+    if (!response.ok) {
+      throw new Error("Network response was not OK");
+    }
+    return response.json();
+  })
+  .then(data => {
+    resultsDiv.innerHTML = '';
+
+    if (data.length === 0) {
+      resultsDiv.innerHTML = '<p class="no-results">No similar tickets found.</p>';
+      return;
+    }
+
+    data.forEach(ticket => {
+      const div = document.createElement('div');
+      div.classList.add('ticket');
+
+      const contentPreview = ticket.content.length > 200 ? ticket.content.substring(0, 200) + '...' : ticket.content;
+
+      div.innerHTML = `
+        <strong>Ticket ID:</strong> ${ticket.id}<br>
+        <strong>Subject:</strong> ${ticket.subject}<br>
+        <strong>Similarity Score:</strong> ${(1 - ticket.distance).toFixed(3)}<br>
+        <strong>Created By:</strong> ${ticket.created_by_name} (${ticket.created_by_email})<br>
+        <strong>Responsible:</strong> ${ticket.responsible_name} (${ticket.responsible_email})<br>
+        <p>${contentPreview}</p>
+      `;
+      resultsDiv.appendChild(div);
+    });
+  })
+  .catch(err => {
+    resultsDiv.innerHTML = `<p class="no-results">Error occurred: ${err.message}</p>`;
+    console.error('Error:', err);
+  });
+});
+</script>
+
+</body>
+</html>
